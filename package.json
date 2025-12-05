@@ -1,0 +1,40 @@
+{
+    "name": "docsify-interactive-checkboxes",
+    "version": "1.0.0",
+    "description": "A lightweight Docsify plugin that transforms standard markdown checkboxes into interactive, persistent task lists",
+    "main": "src/plugin.js",
+    "unpkg": "dist/plugin.min.js",
+    "jsdelivr": "dist/plugin.min.js",
+    "files": [
+        "src",
+        "dist"
+    ],
+    "scripts": {
+        "build": "terser src/plugin.js -o dist/plugin.min.js -c -m",
+        "dev": "npx serve demo -l 3000",
+        "prepublishOnly": "npm run build"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/andreferra/docsify-plugin-interactive-checkboxes.git"
+    },
+    "keywords": [
+        "docsify",
+        "plugin",
+        "checkbox",
+        "interactive",
+        "todo",
+        "task-list",
+        "markdown",
+        "persistent"
+    ],
+    "author": "Andrea Ferrario",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/andreferra/docsify-plugin-interactive-checkboxes/issues"
+    },
+    "homepage": "https://github.com/andreferra/docsify-plugin-interactive-checkboxes#readme",
+    "devDependencies": {
+        "terser": "^5.31.0"
+    }
+}
