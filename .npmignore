@@ -1,0 +1,8 @@
+src/
+test/
+.github/
+docs/
+.gitignore
+.npmignore
+jest.config.js
+package-lock.json
