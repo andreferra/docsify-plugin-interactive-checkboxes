@@ -11,7 +11,7 @@
     ],
     "scripts": {
         "build": "terser src/plugin.js -o dist/plugin.min.js -c -m",
-        "dev": "npx serve demo -l 3000",
+        "dev": "npx serve docs -l 3000",
         "prepublishOnly": "npm run build"
     },
     "repository": {
