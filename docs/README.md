@@ -6,8 +6,9 @@
 
 - 🖱️ **Interactive Checkboxes** - Click to toggle task completion
 - 💾 **Persistent State** - Saved in browser localStorage
+- 🛡️ **Stable IDs (v2)** - States persist correctly even when reordering items
 - 📄 **Per-Page Storage** - Each page maintains its own states
-- 🎨 **Visual Feedback** - Completed tasks show strikethrough styling
+- 🎨 **Visual Feedback** - Completed tasks show strikethrough + fade
 - ⚡ **Zero Dependencies** - Pure JavaScript
 - 🚀 **Easy Integration** - Drop-in solution
 
@@ -21,62 +22,11 @@ Try clicking these checkboxes - they'll save automatically!
 
 ## 📦 Installation
 
-Add the plugin to your `index.html`:
+Add the plugin to your `index.html` after Docsify:
 
 ```html
-<script>
-  window.$docsify = {
-    // ... your config
-    
-    plugins: [
-      function(hook, vm) {
-        const STORAGE_PREFIX = 'docsify-checkbox-';
-        
-        function getStorageKey() {
-          return STORAGE_PREFIX + (vm.route.path || 'index');
-        }
-        
-        function loadCheckboxStates() {
-          const stored = localStorage.getItem(getStorageKey());
-          return stored ? JSON.parse(stored) : {};
-        }
-        
-        function saveCheckboxStates(states) {
-          localStorage.setItem(getStorageKey(), JSON.stringify(states));
-        }
-        
-        hook.doneEach(function() {
-          const checkboxes = document.querySelectorAll(
-            '.task-list-item input[type="checkbox"]'
-          );
-          const states = loadCheckboxStates();
-          
-          checkboxes.forEach((checkbox, index) => {
-            const id = 'checkbox-' + index;
-            checkbox.id = id;
-            checkbox.removeAttribute('disabled');
-            
-            if (states[id] !== undefined) {
-              checkbox.checked = states[id];
-              if (checkbox.checked) {
-                checkbox.parentElement.classList.add('checked');
-              }
-            }
-            
-            checkbox.addEventListener('change', function(e) {
-              const isChecked = e.target.checked;
-              e.target.parentElement.classList.toggle('checked', isChecked);
-              
-              const currentStates = loadCheckboxStates();
-              currentStates[id] = isChecked;
-              saveCheckboxStates(currentStates);
-            });
-          });
-        });
-      }
-    ]
-  }
-</script>
+<!-- Interactive Checkboxes Plugin -->
+<script src="https://cdn.jsdelivr.net/gh/andreferra/docsify-plugin-interactive-checkboxes/src/plugin.js"></script>
 ```
 
 ## 🎨 Styling

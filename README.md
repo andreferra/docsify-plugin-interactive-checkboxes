@@ -7,9 +7,10 @@ A lightweight Docsify plugin that transforms standard markdown checkboxes into i
 ## ✨ Features
 
 - 🖱️ **Interactive Checkboxes** - Click to toggle completion
-- 💾 **Persistent State** - Saved in localStorage
+- 💾 **Persistent State** - Saved in localStorage with **stable IDs** (v2)
 - 📄 **Per-Page Storage** - Each page has its own states
 - 🎨 **Visual Feedback** - Strikethrough + fade effect
+- 📤 **Import/Export** - Backup your progress easily
 - ⚡ **Zero Dependencies** - Pure JavaScript
 - 🚀 **Easy Integration** - Drop-in solution
 

@@ -11,7 +11,8 @@
     ],
     "scripts": {
         "build": "terser src/plugin.js -o dist/plugin.min.js -c -m",
-        "dev": "npx serve demo -l 3000",
+        "dev": "npx serve docs -l 3000",
+        "test": "jest",
         "prepublishOnly": "npm run build"
     },
     "repository": {
@@ -35,6 +36,8 @@
     },
     "homepage": "https://github.com/andreferra/docsify-plugin-interactive-checkboxes#readme",
     "devDependencies": {
+        "jest": "^29.7.0",
+        "jest-environment-jsdom": "^29.7.0",
         "terser": "^5.31.0"
     }
 }

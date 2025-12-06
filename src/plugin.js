@@ -5,7 +5,7 @@
  * 
  * @author Andrea Ferrario
  * @license MIT
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 (function () {
@@ -16,8 +16,24 @@
         storagePrefix: 'docsify-checkbox-',
         strikethroughCompleted: true,
         fadeCompleted: true,
-        fadeOpacity: 0.6
+        fadeOpacity: 0.6,
+        cleanOrphanedStates: true
     };
+
+    /**
+     * Generate a stable hash from a string
+     * @param {string} str - Input string
+     * @returns {string} Hash string
+     */
+    function simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return Math.abs(hash).toString(36);
+    }
 
     /**
      * Interactive Checkboxes Plugin
@@ -65,6 +81,27 @@
         }
 
         /**
+         * Generate a stable ID for a checkbox based on its content and position
+         * @param {HTMLElement} checkbox - The checkbox element
+         * @param {number} index - The checkbox index
+         * @returns {string} Stable checkbox ID
+         */
+        function generateCheckboxId(checkbox, index) {
+            const listItem = checkbox.closest('li');
+            if (!listItem) return 'checkbox-' + index;
+
+            // Get text content without the checkbox itself
+            const clone = listItem.cloneNode(true);
+            const cloneCheckbox = clone.querySelector('input[type="checkbox"]');
+            if (cloneCheckbox) cloneCheckbox.remove();
+
+            const text = clone.textContent.trim().slice(0, 50);
+            const hash = simpleHash(text);
+
+            return `cb-${hash}-${index}`;
+        }
+
+        /**
          * Apply visual styles to a checkbox item
          * @param {HTMLElement} listItem - The list item element
          * @param {boolean} isChecked - Whether the checkbox is checked
@@ -72,11 +109,18 @@
         function applyStyles(listItem, isChecked) {
             if (isChecked) {
                 listItem.classList.add('checked');
+
+                if (config.strikethroughCompleted) {
+                    listItem.style.textDecoration = 'line-through';
+                }
+
                 if (config.fadeCompleted) {
                     listItem.style.opacity = config.fadeOpacity;
                 }
             } else {
                 listItem.classList.remove('checked');
+                listItem.style.textDecoration = '';
+
                 if (config.fadeCompleted) {
                     listItem.style.opacity = '';
                 }
@@ -84,21 +128,49 @@
         }
 
         /**
+         * Clean orphaned states from localStorage
+         * @param {Array<string>} validIds - Array of current valid checkbox IDs
+         */
+        function cleanOrphanedStates(validIds) {
+            if (!config.cleanOrphanedStates) return;
+
+            const states = loadCheckboxStates();
+            const validIdSet = new Set(validIds);
+            const cleaned = {};
+            let hasChanges = false;
+
+            Object.keys(states).forEach(id => {
+                if (validIdSet.has(id)) {
+                    cleaned[id] = states[id];
+                } else {
+                    hasChanges = true;
+                }
+            });
+
+            if (hasChanges) {
+                saveCheckboxStates(cleaned);
+            }
+        }
+
+        /**
          * Initialize checkboxes after each page render
          */
         hook.doneEach(function () {
-            // Find all task list checkboxes
+            // Find all task list checkboxes (more specific selector)
             const checkboxes = document.querySelectorAll(
-                '.task-list-item input[type="checkbox"], ' +
-                'li input[type="checkbox"]'
+                '.task-list-item input[type="checkbox"], li input[type="checkbox"]'
             );
 
             if (checkboxes.length === 0) return;
 
+            // Load states once
             const states = loadCheckboxStates();
+            const validIds = [];
 
             checkboxes.forEach((checkbox, index) => {
-                const checkboxId = 'checkbox-' + index;
+                const checkboxId = generateCheckboxId(checkbox, index);
+                validIds.push(checkboxId);
+
                 checkbox.id = checkboxId;
                 checkbox.setAttribute('data-checkbox-id', checkboxId);
 
@@ -108,28 +180,31 @@
                 // Add cursor pointer for better UX
                 checkbox.style.cursor = 'pointer';
 
-                // Restore saved state
-                if (states[checkboxId] !== undefined) {
-                    checkbox.checked = states[checkboxId];
-                    const listItem = checkbox.closest('li') || checkbox.parentElement;
-                    applyStyles(listItem, checkbox.checked);
-                } else if (checkbox.checked) {
-                    // Handle pre-checked boxes from markdown ([x])
-                    const listItem = checkbox.closest('li') || checkbox.parentElement;
-                    applyStyles(listItem, true);
+                const listItem = checkbox.closest('li');
+                if (!listItem) return;
+
+                // Restore saved state or use markdown state
+                const savedState = states[checkboxId];
+                if (savedState !== undefined) {
+                    checkbox.checked = savedState;
                 }
 
-                // Remove existing listeners to prevent duplicates
-                const newCheckbox = checkbox.cloneNode(true);
-                checkbox.parentNode.replaceChild(newCheckbox, checkbox);
+                // Apply styles based on current state
+                applyStyles(listItem, checkbox.checked);
+
+                // Check if listener already exists
+                if (checkbox.hasAttribute('data-listener-attached')) return;
+                checkbox.setAttribute('data-listener-attached', 'true');
 
                 // Add change event listener
-                newCheckbox.addEventListener('change', function (e) {
+                checkbox.addEventListener('change', function (e) {
                     const isChecked = e.target.checked;
-                    const listItem = e.target.closest('li') || e.target.parentElement;
+                    const targetListItem = e.target.closest('li');
 
-                    // Apply visual feedback
-                    applyStyles(listItem, isChecked);
+                    if (targetListItem) {
+                        // Apply visual feedback
+                        applyStyles(targetListItem, isChecked);
+                    }
 
                     // Save state
                     const currentStates = loadCheckboxStates();
@@ -141,28 +216,55 @@
                         detail: {
                             checkboxId,
                             checked: isChecked,
-                            page: vm.route.path
+                            page: vm.route.path,
+                            progress: getProgress()
                         }
                     }));
                 });
             });
+
+            // Clean orphaned states
+            cleanOrphanedStates(validIds);
         });
+
+        /**
+         * Get progress for current page
+         * @returns {Object} Progress statistics
+         */
+        function getProgress() {
+            const checkboxes = document.querySelectorAll(
+                '.task-list-item input[type="checkbox"], li input[type="checkbox"]'
+            );
+            const total = checkboxes.length;
+            const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+            return {
+                total,
+                checked,
+                percentage: total > 0 ? Math.round((checked / total) * 100) : 0
+            };
+        }
     }
 
     // Utility function to clear all checkbox states
     window.clearAllDocsifyCheckboxes = function (prefix) {
         const storagePrefix = prefix || DEFAULT_CONFIG.storagePrefix;
-        Object.keys(localStorage)
-            .filter(key => key.startsWith(storagePrefix))
-            .forEach(key => localStorage.removeItem(key));
+        const keysToRemove = [];
+
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(storagePrefix)) {
+                keysToRemove.push(key);
+            }
+        }
+
+        keysToRemove.forEach(key => localStorage.removeItem(key));
         location.reload();
     };
 
     // Utility function to get progress for current page
     window.getDocsifyCheckboxProgress = function () {
         const checkboxes = document.querySelectorAll(
-            '.task-list-item input[type="checkbox"], ' +
-            'li input[type="checkbox"]'
+            '.task-list-item input[type="checkbox"], li input[type="checkbox"]'
         );
         const total = checkboxes.length;
         const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
@@ -171,6 +273,39 @@
             checked,
             percentage: total > 0 ? Math.round((checked / total) * 100) : 0
         };
+    };
+
+    // Utility function to export checkbox states
+    window.exportDocsifyCheckboxStates = function () {
+        const storagePrefix = DEFAULT_CONFIG.storagePrefix;
+        const exports = {};
+
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(storagePrefix)) {
+                try {
+                    exports[key] = JSON.parse(localStorage.getItem(key));
+                } catch (e) {
+                    console.warn('Error exporting key:', key, e);
+                }
+            }
+        }
+
+        return exports;
+    };
+
+    // Utility function to import checkbox states
+    window.importDocsifyCheckboxStates = function (data) {
+        try {
+            Object.keys(data).forEach(key => {
+                localStorage.setItem(key, JSON.stringify(data[key]));
+            });
+            location.reload();
+            return true;
+        } catch (e) {
+            console.error('Error importing states:', e);
+            return false;
+        }
     };
 
     // Register plugin with Docsify
