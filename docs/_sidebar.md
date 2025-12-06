@@ -1,0 +1,4 @@
+- [Home](/)
+- [Demo](demo.md)
+- [Configuration](configuration.md)
+- [GitHub](https://github.com/andreferra/docsify-plugin-interactive-checkboxes)

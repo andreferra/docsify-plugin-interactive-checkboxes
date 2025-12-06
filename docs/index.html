@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docsify Interactive Checkboxes</title>
+    <meta name="description"
+        content="A lightweight Docsify plugin that transforms markdown checkboxes into interactive, persistent task lists">
+
+    <!-- Docsify Theme -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+
+    <!-- Custom Styles -->
+    <style>
+        :root {
+            --theme-color: #42b983;
+        }
+
+        /* Task list styling */
+        .task-list-item {
+            list-style-type: none;
+            margin-left: -1.5em;
+            transition: opacity 0.2s ease;
+        }
+
+        .task-list-item input[type="checkbox"] {
+            margin-right: 0.5em;
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+            accent-color: var(--theme-color);
+            vertical-align: middle;
+        }
+
+        .task-list-item.checked {
+            opacity: 0.6;
+        }
+
+        .task-list-item.checked>* {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        /* Code blocks */
+        .markdown-section code {
+            background-color: #f8f8f8;
+            border-radius: 4px;
+            padding: 2px 6px;
+        }
+
+        /* Progress indicator */
+        .progress-bar {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #fff;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: none;
+        }
+
+        .progress-bar.visible {
+            display: block;
+        }
+
+        .progress-bar .progress-track {
+            width: 200px;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-bar .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #42b983, #35495e);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-bar .progress-text {
+            font-size: 14px;
+            color: #35495e;
+            font-weight: 600;
+        }
+
+        .reset-btn {
+            margin-top: 10px;
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #666;
+            transition: background 0.2s;
+        }
+
+        .reset-btn:hover {
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app"></div>
+
+    <!-- Progress Indicator -->
+    <div class="progress-bar" id="progressBar">
+        <div class="progress-text">
+            Progress: <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+        <button class="reset-btn" onclick="clearAllDocsifyCheckboxes()">
+            🔄 Reset All
+        </button>
+    </div>
+
+    <!-- Docsify Configuration -->
+    <script>
+        window.$docsify = {
+            name: 'Interactive Checkboxes',
+            repo: 'https://github.com/andreferra/docsify-plugin-interactive-checkboxes',
+            loadSidebar: true,
+            subMaxLevel: 3,
+            auto2top: true,
+
+            // Plugin configuration
+            interactiveCheckboxes: {
+                storagePrefix: 'docsify-checkbox-',
+                fadeCompleted: true,
+                fadeOpacity: 0.6
+            }
+        };
+
+        // Update progress bar on checkbox change
+        document.addEventListener('docsify-checkbox-change', function (e) {
+            updateProgressBar();
+        });
+
+        function updateProgressBar() {
+            setTimeout(function () {
+                if (typeof getDocsifyCheckboxProgress === 'function') {
+                    const progress = getDocsifyCheckboxProgress();
+                    const progressBar = document.getElementById('progressBar');
+
+                    if (progress.total > 0) {
+                        progressBar.classList.add('visible');
+                        document.getElementById('progressPercent').textContent = progress.percentage + '%';
+                        document.getElementById('progressFill').style.width = progress.percentage + '%';
+                    } else {
+                        progressBar.classList.remove('visible');
+                    }
+                }
+            }, 50);
+        }
+
+        // Update after page load
+        window.addEventListener('load', function () {
+            setTimeout(updateProgressBar, 500);
+        });
+    </script>
+
+    <!-- Docsify Core -->
+    <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+
+    <!-- Syntax Highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-markup.min.js"></script>
+
+    <!-- Interactive Checkboxes Plugin -->
+    <script>
+        (function () {
+            'use strict';
+
+            const DEFAULT_CONFIG = {
+                storagePrefix: 'docsify-checkbox-',
+                fadeCompleted: true,
+                fadeOpacity: 0.6
+            };
+
+            function interactiveCheckboxesPlugin(hook, vm) {
+                const config = Object.assign({}, DEFAULT_CONFIG, window.$docsify?.interactiveCheckboxes || {});
+
+                function getStorageKey() {
+                    return config.storagePrefix + (vm.route.path || 'index');
+                }
+
+                function loadCheckboxStates() {
+                    try {
+                        const stored = localStorage.getItem(getStorageKey());
+                        return stored ? JSON.parse(stored) : {};
+                    } catch (e) { return {}; }
+                }
+
+                function saveCheckboxStates(states) {
+                    try {
+                        localStorage.setItem(getStorageKey(), JSON.stringify(states));
+                    } catch (e) { }
+                }
+
+                function applyStyles(listItem, isChecked) {
+                    if (isChecked) {
+                        listItem.classList.add('checked');
+                        if (config.fadeCompleted) listItem.style.opacity = config.fadeOpacity;
+                    } else {
+                        listItem.classList.remove('checked');
+                        if (config.fadeCompleted) listItem.style.opacity = '';
+                    }
+                }
+
+                hook.doneEach(function () {
+                    const checkboxes = document.querySelectorAll('.task-list-item input[type="checkbox"], li input[type="checkbox"]');
+                    if (checkboxes.length === 0) return;
+
+                    const states = loadCheckboxStates();
+
+                    checkboxes.forEach((checkbox, index) => {
+                        const checkboxId = 'checkbox-' + index;
+                        checkbox.id = checkboxId;
+                        checkbox.removeAttribute('disabled');
+                        checkbox.style.cursor = 'pointer';
+
+                        if (states[checkboxId] !== undefined) {
+                            checkbox.checked = states[checkboxId];
+                            applyStyles(checkbox.closest('li') || checkbox.parentElement, checkbox.checked);
+                        } else if (checkbox.checked) {
+                            applyStyles(checkbox.closest('li') || checkbox.parentElement, true);
+                        }
+
+                        const newCheckbox = checkbox.cloneNode(true);
+                        checkbox.parentNode.replaceChild(newCheckbox, checkbox);
+
+                        newCheckbox.addEventListener('change', function (e) {
+                            const isChecked = e.target.checked;
+                            const listItem = e.target.closest('li') || e.target.parentElement;
+                            applyStyles(listItem, isChecked);
+
+                            const currentStates = loadCheckboxStates();
+                            currentStates[checkboxId] = isChecked;
+                            saveCheckboxStates(currentStates);
+
+                            document.dispatchEvent(new CustomEvent('docsify-checkbox-change', {
+                                detail: { checkboxId, checked: isChecked, page: vm.route.path }
+                            }));
+                        });
+                    });
+
+                    // Trigger progress update
+                    setTimeout(updateProgressBar, 100);
+                });
+            }
+
+            window.clearAllDocsifyCheckboxes = function (prefix) {
+                Object.keys(localStorage)
+                    .filter(key => key.startsWith(prefix || DEFAULT_CONFIG.storagePrefix))
+                    .forEach(key => localStorage.removeItem(key));
+                location.reload();
+            };
+
+            window.getDocsifyCheckboxProgress = function () {
+                const checkboxes = document.querySelectorAll('.task-list-item input[type="checkbox"], li input[type="checkbox"]');
+                const total = checkboxes.length;
+                const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+                return { total, checked, percentage: total > 0 ? Math.round((checked / total) * 100) : 0 };
+            };
+
+            window.$docsify.plugins = window.$docsify.plugins || [];
+            window.$docsify.plugins.push(interactiveCheckboxesPlugin);
+        })();
+    </script>
+</body>
+
+</html>
