@@ -28,4 +28,10 @@ jobs:
       - run: npm test
       - run: npm run build
 
+      - name: Update package.json version
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "Syncing version to $VERSION"
+          npm version $VERSION --no-git-tag-version
+
       - run: npm publish
