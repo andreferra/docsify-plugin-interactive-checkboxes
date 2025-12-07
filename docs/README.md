@@ -22,11 +22,11 @@ Try clicking these checkboxes - they'll save automatically!
 
 ## 📦 Installation
 
-Add the plugin to your `index.html` after Docsify:
+Please refer to the [Installation Guide](installation.md) for detailed instructions on using NPM or CDN.
 
 ```html
-<!-- Interactive Checkboxes Plugin -->
-<script src="https://cdn.jsdelivr.net/gh/andreferra/docsify-plugin-interactive-checkboxes/src/plugin.js"></script>
+<!-- Quick CDN link -->
+<script src="//cdn.jsdelivr.net/npm/docsify-interactive-checkboxes/dist/plugin.min.js"></script>
 ```
 
 ## 🎨 Styling

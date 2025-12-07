@@ -20,13 +20,23 @@ A lightweight Docsify plugin that transforms standard markdown checkboxes into i
 
 **[View Full Documentation & Demo →](https://andreferra.github.io/docsify-plugin-interactive-checkboxes/)**
 
-## 🚀 Quick Start
+## 📦 Installation
 
-Add to your `index.html` before closing `</body>`:
+### NPM
+
+```bash
+npm install docsify-interactive-checkboxes
+```
+
+### CDN
+
+Add the script to your `index.html` after the Docsify script:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/andreferra/docsify-plugin-interactive-checkboxes/src/plugin.js"></script>
+<script src="//cdn.jsdelivr.net/npm/docsify-interactive-checkboxes/dist/plugin.min.js"></script>
 ```
+
+
 
 ## 📝 Usage
 
