@@ -35,6 +35,47 @@
         return Math.abs(hash).toString(36);
     }
 
+    const CHECKBOX_SELECTOR = 'li input[type="checkbox"]';
+
+    /**
+     * Find task list checkboxes inside the rendered page content.
+     * Scoped to Docsify's content area so sidebar, navbar or other plugin
+     * checkboxes are left untouched.
+     * @returns {Array<HTMLInputElement>} Checkboxes in document order
+     */
+    function getCheckboxes() {
+        const container = document.querySelector('.markdown-section') || document;
+        return Array.from(container.querySelectorAll(CHECKBOX_SELECTOR));
+    }
+
+    /**
+     * Compute completion progress for the current page
+     * @returns {Object} Progress statistics
+     */
+    function computeProgress() {
+        const checkboxes = getCheckboxes();
+        const total = checkboxes.length;
+        const checked = checkboxes.filter(cb => cb.checked).length;
+        return {
+            total,
+            checked,
+            percentage: total > 0 ? Math.round((checked / total) * 100) : 0
+        };
+    }
+
+    /**
+     * Get the text of a list item, excluding its checkbox
+     * @param {HTMLElement} listItem - The list item element
+     * @param {boolean} includeNested - Whether to include nested sub-list text
+     * @returns {string} Text used to identify the item
+     */
+    function getItemText(listItem, includeNested) {
+        const clone = listItem.cloneNode(true);
+        const selector = includeNested ? 'input[type="checkbox"]' : 'input[type="checkbox"], ul, ol';
+        clone.querySelectorAll(selector).forEach(el => el.remove());
+        return clone.textContent.trim().slice(0, 50);
+    }
+
     /**
      * Check whether a value is a plain (non-null, non-array) object
      * @param {*} value - Value to check
@@ -125,24 +166,30 @@
         }
 
         /**
-         * Generate a stable ID for a checkbox based on its content and position
-         * @param {HTMLElement} checkbox - The checkbox element
-         * @param {number} index - The checkbox index
+         * Generate a stable ID for a checkbox based on its own text.
+         * Duplicate texts are disambiguated by their occurrence count, so adding
+         * or removing other items does not change the ID.
+         * @param {HTMLElement} listItem - The list item containing the checkbox
+         * @param {Object} occurrences - Map of hash -> times seen so far on this page
          * @returns {string} Stable checkbox ID
          */
-        function generateCheckboxId(checkbox, index) {
-            const listItem = checkbox.closest('li');
-            if (!listItem) return 'checkbox-' + index;
+        function generateCheckboxId(listItem, occurrences) {
+            const hash = simpleHash(getItemText(listItem, false));
+            const occurrence = occurrences[hash] || 0;
+            occurrences[hash] = occurrence + 1;
 
-            // Get text content without the checkbox itself
-            const clone = listItem.cloneNode(true);
-            const cloneCheckbox = clone.querySelector('input[type="checkbox"]');
-            if (cloneCheckbox) cloneCheckbox.remove();
+            return `cb-${hash}-${occurrence}`;
+        }
 
-            const text = clone.textContent.trim().slice(0, 50);
-            const hash = simpleHash(text);
-
-            return `cb-${hash}-${index}`;
+        /**
+         * ID format used up to v2.0.1 (text including nested items + page index),
+         * kept to migrate previously saved states.
+         * @param {HTMLElement} listItem - The list item containing the checkbox
+         * @param {number} index - The checkbox index on the page
+         * @returns {string} Legacy checkbox ID
+         */
+        function generateLegacyCheckboxId(listItem, index) {
+            return `cb-${simpleHash(getItemText(listItem, true))}-${index}`;
         }
 
         /**
@@ -200,20 +247,27 @@
          * Initialize checkboxes after each page render
          */
         hook.doneEach(function () {
-            // Find all task list checkboxes (more specific selector)
-            const checkboxes = document.querySelectorAll(
-                '.task-list-item input[type="checkbox"], li input[type="checkbox"]'
-            );
+            const checkboxes = getCheckboxes();
 
             if (checkboxes.length === 0) return;
 
             // Load states once
             const states = loadCheckboxStates();
             const validIds = [];
+            const occurrences = {};
+            let migrated = false;
 
             checkboxes.forEach((checkbox, index) => {
-                const checkboxId = generateCheckboxId(checkbox, index);
+                const listItem = checkbox.closest('li');
+                const checkboxId = generateCheckboxId(listItem, occurrences);
                 validIds.push(checkboxId);
+
+                // Migrate state saved with the legacy ID format
+                const legacyId = generateLegacyCheckboxId(listItem, index);
+                if (states[checkboxId] === undefined && states[legacyId] !== undefined) {
+                    states[checkboxId] = states[legacyId];
+                    migrated = true;
+                }
 
                 checkbox.id = checkboxId;
                 checkbox.setAttribute('data-checkbox-id', checkboxId);
@@ -223,9 +277,6 @@
 
                 // Add cursor pointer for better UX
                 checkbox.style.cursor = 'pointer';
-
-                const listItem = checkbox.closest('li');
-                if (!listItem) return;
 
                 // Restore saved state or use markdown state
                 const savedState = states[checkboxId];
@@ -261,32 +312,19 @@
                             checkboxId,
                             checked: isChecked,
                             page: vm.route.path,
-                            progress: getProgress()
+                            progress: computeProgress()
                         }
                     }));
                 });
             });
 
+            if (migrated) {
+                saveCheckboxStates(states);
+            }
+
             // Clean orphaned states
             cleanOrphanedStates(validIds);
         });
-
-        /**
-         * Get progress for current page
-         * @returns {Object} Progress statistics
-         */
-        function getProgress() {
-            const checkboxes = document.querySelectorAll(
-                '.task-list-item input[type="checkbox"], li input[type="checkbox"]'
-            );
-            const total = checkboxes.length;
-            const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
-            return {
-                total,
-                checked,
-                percentage: total > 0 ? Math.round((checked / total) * 100) : 0
-            };
-        }
     }
 
     // Utility function to clear all checkbox states
@@ -306,18 +344,7 @@
     };
 
     // Utility function to get progress for current page
-    window.getDocsifyCheckboxProgress = function () {
-        const checkboxes = document.querySelectorAll(
-            '.task-list-item input[type="checkbox"], li input[type="checkbox"]'
-        );
-        const total = checkboxes.length;
-        const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
-        return {
-            total,
-            checked,
-            percentage: total > 0 ? Math.round((checked / total) * 100) : 0
-        };
-    };
+    window.getDocsifyCheckboxProgress = computeProgress;
 
     // Utility function to export checkbox states
     window.exportDocsifyCheckboxStates = function () {
