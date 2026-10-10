@@ -131,4 +131,78 @@ describe('Docsify Interactive Checkboxes', () => {
         expect(stored['cb-orphan-999']).toBeUndefined();
         expect(stored[document.querySelector('input').id]).toBe(true);
     });
+
+    describe('storage validation', () => {
+        const key = 'test-/test-page';
+
+        beforeEach(() => {
+            jest.spyOn(console, 'warn').mockImplementation(() => {});
+            jest.spyOn(console, 'error').mockImplementation(() => {});
+        });
+
+        afterEach(() => {
+            jest.restoreAllMocks();
+        });
+
+        test.each(['null', '42', '"text"', '[true, false]', '{not json'])(
+            'should not crash when stored states are %s',
+            (stored) => {
+                localStorage.setItem(key, stored);
+                const pluginFunction = window.$docsify.plugins[window.$docsify.plugins.length - 1];
+
+                expect(() => pluginFunction(mockHook, mockVm)).not.toThrow();
+                document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                    expect(cb.disabled).toBe(false);
+                });
+            }
+        );
+
+        test('should ignore non-boolean stored values', () => {
+            const checkbox = document.querySelector('input[type="checkbox"]');
+            localStorage.setItem(key, JSON.stringify({ [checkbox.id]: 'yes' }));
+            checkbox.checked = false;
+
+            const pluginFunction = window.$docsify.plugins[window.$docsify.plugins.length - 1];
+            pluginFunction(mockHook, mockVm);
+
+            expect(checkbox.checked).toBe(false);
+        });
+
+        test('import should reject non-object data', () => {
+            expect(window.importDocsifyCheckboxStates(null)).toBe(false);
+            expect(window.importDocsifyCheckboxStates('x')).toBe(false);
+            expect(window.importDocsifyCheckboxStates([1, 2])).toBe(false);
+        });
+
+        test('import should only write keys with the configured prefix', () => {
+            localStorage.setItem('auth-token', 'secret');
+
+            const result = window.importDocsifyCheckboxStates({
+                'auth-token': { hacked: true },
+                'other-key': { a: true },
+                'test-/page': { 'cb-1-0': true, 'cb-2-1': 'bad' }
+            });
+
+            expect(result).toBe(true);
+            expect(localStorage.getItem('auth-token')).toBe('secret');
+            expect(localStorage.getItem('other-key')).toBeNull();
+            expect(JSON.parse(localStorage.getItem('test-/page'))).toEqual({ 'cb-1-0': true });
+        });
+
+        test('import should reject entries whose value is not an object', () => {
+            const result = window.importDocsifyCheckboxStates({ 'test-/page': 'oops' });
+
+            expect(result).toBe(false);
+            expect(localStorage.getItem('test-/page')).toBeNull();
+        });
+
+        test('export should use the configured prefix', () => {
+            localStorage.setItem('test-/page', JSON.stringify({ 'cb-1-0': true }));
+            localStorage.setItem('docsify-checkbox-/other', JSON.stringify({ 'cb-2-0': true }));
+
+            expect(window.exportDocsifyCheckboxStates()).toEqual({
+                'test-/page': { 'cb-1-0': true }
+            });
+        });
+    });
 });

@@ -36,6 +36,41 @@
     }
 
     /**
+     * Check whether a value is a plain (non-null, non-array) object
+     * @param {*} value - Value to check
+     * @returns {boolean} True if value is a plain object
+     */
+    function isPlainObject(value) {
+        return value !== null && typeof value === 'object' && !Array.isArray(value);
+    }
+
+    /**
+     * Keep only boolean entries from a checkbox states object
+     * @param {*} states - Untrusted states value
+     * @returns {Object|null} Sanitized states, or null if input is not an object
+     */
+    function sanitizeStates(states) {
+        if (!isPlainObject(states)) return null;
+
+        const sanitized = {};
+        Object.keys(states).forEach(id => {
+            if (id !== '__proto__' && typeof states[id] === 'boolean') {
+                sanitized[id] = states[id];
+            }
+        });
+        return sanitized;
+    }
+
+    /**
+     * Get the storage prefix configured by the user, falling back to the default
+     * @returns {string} Storage prefix
+     */
+    function getConfiguredPrefix() {
+        const userConfig = window.$docsify && window.$docsify.interactiveCheckboxes;
+        return (userConfig && userConfig.storagePrefix) || DEFAULT_CONFIG.storagePrefix;
+    }
+
+    /**
      * Interactive Checkboxes Plugin
      * @param {Object} hook - Docsify hook system
      * @param {Object} vm - Docsify virtual machine instance
@@ -60,7 +95,14 @@
             const key = getStorageKey();
             try {
                 const stored = localStorage.getItem(key);
-                return stored ? JSON.parse(stored) : {};
+                if (!stored) return {};
+
+                const states = sanitizeStates(JSON.parse(stored));
+                if (!states) {
+                    console.warn('Docsify Interactive Checkboxes: Ignoring invalid stored states for', key);
+                    return {};
+                }
+                return states;
             } catch (e) {
                 console.warn('Docsify Interactive Checkboxes: Error loading states', e);
                 return {};
@@ -247,7 +289,7 @@
 
     // Utility function to clear all checkbox states
     window.clearAllDocsifyCheckboxes = function (prefix) {
-        const storagePrefix = prefix || DEFAULT_CONFIG.storagePrefix;
+        const storagePrefix = prefix || getConfiguredPrefix();
         const keysToRemove = [];
 
         for (let i = 0; i < localStorage.length; i++) {
@@ -277,7 +319,7 @@
 
     // Utility function to export checkbox states
     window.exportDocsifyCheckboxStates = function () {
-        const storagePrefix = DEFAULT_CONFIG.storagePrefix;
+        const storagePrefix = getConfiguredPrefix();
         const exports = {};
 
         for (let i = 0; i < localStorage.length; i++) {
@@ -295,10 +337,34 @@
     };
 
     // Utility function to import checkbox states
+    // Only keys using the plugin storage prefix and objects of boolean values are accepted,
+    // so imported data cannot overwrite unrelated localStorage entries on the same origin.
     window.importDocsifyCheckboxStates = function (data) {
+        if (!isPlainObject(data)) {
+            console.error('Error importing states: expected an object');
+            return false;
+        }
+
+        const storagePrefix = getConfiguredPrefix();
+        const validEntries = [];
+
+        Object.keys(data).forEach(key => {
+            const states = sanitizeStates(data[key]);
+            if (key.startsWith(storagePrefix) && states) {
+                validEntries.push([key, states]);
+            } else {
+                console.warn('Skipping invalid import key:', key);
+            }
+        });
+
+        if (validEntries.length === 0) {
+            console.error('Error importing states: no valid entries found');
+            return false;
+        }
+
         try {
-            Object.keys(data).forEach(key => {
-                localStorage.setItem(key, JSON.stringify(data[key]));
+            validEntries.forEach(([key, states]) => {
+                localStorage.setItem(key, JSON.stringify(states));
             });
             location.reload();
             return true;
