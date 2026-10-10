@@ -261,6 +261,7 @@
             const storedStates = loadCheckboxStates();
             const isLegacy = Object.keys(storedStates).length > 0 && storedStates[ID_FORMAT_KEY] !== true;
             const states = isLegacy ? {} : storedStates;
+            let statesChanged = isLegacy;
             const validIds = [];
             const occurrences = {};
 
@@ -286,9 +287,14 @@
                 // Add cursor pointer for better UX
                 checkbox.style.cursor = 'pointer';
 
-                // Restore saved state or use markdown state
+                // Restore saved state or use markdown state. Only states that
+                // differ from the markdown are kept: a saved state matching the
+                // markdown is dropped, so later edits to the markdown take effect.
                 const savedState = states[checkboxId];
-                if (savedState !== undefined) {
+                if (savedState === checkbox.defaultChecked) {
+                    delete states[checkboxId];
+                    statesChanged = true;
+                } else if (savedState !== undefined) {
                     checkbox.checked = savedState;
                 }
 
@@ -311,7 +317,11 @@
 
                     // Save state
                     const currentStates = loadCheckboxStates();
-                    currentStates[checkboxId] = isChecked;
+                    if (isChecked === e.target.defaultChecked) {
+                        delete currentStates[checkboxId];
+                    } else {
+                        currentStates[checkboxId] = isChecked;
+                    }
                     saveCheckboxStates(currentStates);
 
                     // Dispatch custom event for external integrations
@@ -326,7 +336,7 @@
                 });
             });
 
-            if (isLegacy) {
+            if (statesChanged) {
                 saveCheckboxStates(states);
             }
 
