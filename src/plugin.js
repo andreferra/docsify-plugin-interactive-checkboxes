@@ -37,6 +37,10 @@
 
     const CHECKBOX_SELECTOR = 'li input[type="checkbox"]';
 
+    // Marks page states saved with the current ID format; states without it
+    // use the legacy IDs (up to v2.0.1) and are migrated as a whole on first render.
+    const ID_FORMAT_KEY = '__idFormatV2';
+
     /**
      * Find task list checkboxes inside the rendered page content.
      * Scoped to Docsify's content area so sidebar, navbar or other plugin
@@ -158,6 +162,7 @@
          */
         function saveCheckboxStates(states) {
             const key = getStorageKey();
+            states[ID_FORMAT_KEY] = true;
             try {
                 localStorage.setItem(key, JSON.stringify(states));
             } catch (e) {
@@ -231,7 +236,7 @@
             let hasChanges = false;
 
             Object.keys(states).forEach(id => {
-                if (validIdSet.has(id)) {
+                if (validIdSet.has(id) || id === ID_FORMAT_KEY) {
                     cleaned[id] = states[id];
                 } else {
                     hasChanges = true;
@@ -251,11 +256,13 @@
 
             if (checkboxes.length === 0) return;
 
-            // Load states once
-            const states = loadCheckboxStates();
+            // Load states once. Legacy-format states are read only through
+            // legacy IDs, so old and new IDs can never be confused.
+            const storedStates = loadCheckboxStates();
+            const isLegacy = Object.keys(storedStates).length > 0 && storedStates[ID_FORMAT_KEY] !== true;
+            const states = isLegacy ? {} : storedStates;
             const validIds = [];
             const occurrences = {};
-            let migrated = false;
 
             checkboxes.forEach((checkbox, index) => {
                 const listItem = checkbox.closest('li');
@@ -263,10 +270,11 @@
                 validIds.push(checkboxId);
 
                 // Migrate state saved with the legacy ID format
-                const legacyId = generateLegacyCheckboxId(listItem, index);
-                if (states[checkboxId] === undefined && states[legacyId] !== undefined) {
-                    states[checkboxId] = states[legacyId];
-                    migrated = true;
+                if (isLegacy) {
+                    const legacyState = storedStates[generateLegacyCheckboxId(listItem, index)];
+                    if (legacyState !== undefined) {
+                        states[checkboxId] = legacyState;
+                    }
                 }
 
                 checkbox.id = checkboxId;
@@ -318,7 +326,7 @@
                 });
             });
 
-            if (migrated) {
+            if (isLegacy) {
                 saveCheckboxStates(states);
             }
 
