@@ -263,6 +263,46 @@ describe('Docsify Interactive Checkboxes', () => {
             expect(inputs[2].checked).toBe(true);
         });
 
+        test('should follow markdown changes after an item is toggled back', () => {
+            const task = (text, checked) =>
+                `<li class="task-list-item"><input type="checkbox" disabled${checked ? ' checked' : ''} /> ${text}</li>`;
+            render(task('Task 1', true) + task('Task 2', false) + task('Task 3', false));
+            runPlugin();
+
+            const task2 = document.querySelectorAll('.markdown-section input')[1];
+            task2.checked = true;
+            task2.dispatchEvent(new Event('change'));
+            task2.checked = false;
+            task2.dispatchEvent(new Event('change'));
+
+            render(task('Task 1', true) + task('Task 2', true) + task('Task 3', false));
+            runPlugin();
+
+            const checked = Array.from(document.querySelectorAll('.markdown-section input')).map(cb => cb.checked);
+            expect(checked).toEqual([true, true, false]);
+        });
+
+        test('should follow markdown changes that catch up with a saved state', () => {
+            const task = (text, checked) =>
+                `<li class="task-list-item"><input type="checkbox" disabled${checked ? ' checked' : ''} /> ${text}</li>`;
+            render(task('Task A', false));
+            runPlugin();
+
+            const taskA = document.querySelector('.markdown-section input');
+            taskA.checked = true;
+            taskA.dispatchEvent(new Event('change'));
+
+            // Author checks the item in markdown: saved state becomes redundant
+            render(task('Task A', true));
+            runPlugin();
+            expect(document.querySelector('.markdown-section input').checked).toBe(true);
+
+            // Author unchecks it again: markdown wins
+            render(task('Task A', false));
+            runPlugin();
+            expect(document.querySelector('.markdown-section input').checked).toBe(false);
+        });
+
         test('should give distinct IDs to items with the same text', () => {
             render(item('Same') + item('Same'));
             runPlugin();
