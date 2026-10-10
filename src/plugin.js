@@ -78,6 +78,8 @@
     function interactiveCheckboxesPlugin(hook, vm) {
         // Merge user config with defaults
         const config = Object.assign({}, DEFAULT_CONFIG, window.$docsify?.interactiveCheckboxes || {});
+        // An empty prefix would make import/export/clear match every localStorage key
+        config.storagePrefix = getConfiguredPrefix();
 
         /**
          * Generate storage key for current page

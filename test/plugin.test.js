@@ -196,6 +196,22 @@ describe('Docsify Interactive Checkboxes', () => {
             expect(localStorage.getItem('test-/page')).toBeNull();
         });
 
+        test('should fall back to the default prefix when storagePrefix is empty', () => {
+            window.$docsify.interactiveCheckboxes.storagePrefix = '';
+            document.body.innerHTML = '<ul><li class="task-list-item"><input type="checkbox" disabled /> Task 1</li></ul>';
+            const pluginFunction = window.$docsify.plugins[window.$docsify.plugins.length - 1];
+            pluginFunction(mockHook, mockVm);
+
+            const checkbox = document.querySelector('input[type="checkbox"]');
+            checkbox.checked = true;
+            checkbox.dispatchEvent(new Event('change'));
+
+            expect(localStorage.getItem('/test-page')).toBeNull();
+            expect(window.exportDocsifyCheckboxStates()).toEqual({
+                'docsify-checkbox-/test-page': { [checkbox.id]: true }
+            });
+        });
+
         test('export should use the configured prefix', () => {
             localStorage.setItem('test-/page', JSON.stringify({ 'cb-1-0': true }));
             localStorage.setItem('docsify-checkbox-/other', JSON.stringify({ 'cb-2-0': true }));
