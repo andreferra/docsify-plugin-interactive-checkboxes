@@ -1,6 +1,6 @@
 {
     "name": "docsify-interactive-checkboxes",
-    "version": "2.0.1",
+    "version": "2.1.0",
     "description": "A lightweight Docsify plugin that transforms standard markdown checkboxes into interactive, persistent task lists",
     "main": "src/plugin.js",
     "unpkg": "dist/plugin.min.js",
