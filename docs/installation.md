@@ -27,14 +27,14 @@ Add the following script **after** the main Docsify script:
 Loading a version range (or no version at all) means a new release is picked up automatically. For production sites, pin an exact version and add a [Subresource Integrity](https://developer.mozilla.org/docs/Web/Security/Subresource_Integrity) hash, so the browser refuses to run the file if it ever changes:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/docsify-interactive-checkboxes@2.0.1/dist/plugin.min.js"
-        integrity="sha384-<hash>" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/docsify-interactive-checkboxes@2.1.0/dist/plugin.min.js"
+        integrity="sha384-wkPmmUMm8XUl3SMSEeYOdEuQHOsVYjlKT8y+dJdhunYc3PloemSltVp1FAefOqyi" crossorigin="anonymous"></script>
 ```
 
 Generate the hash for the exact file you reference:
 
 ```bash
-curl -s https://cdn.jsdelivr.net/npm/docsify-interactive-checkboxes@2.0.1/dist/plugin.min.js \
+curl -s https://cdn.jsdelivr.net/npm/docsify-interactive-checkboxes@2.1.0/dist/plugin.min.js \
   | openssl dgst -sha384 -binary | openssl base64 -A
 ```
 

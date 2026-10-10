@@ -5,7 +5,7 @@
  * 
  * @author Andrea Ferrario
  * @license MIT
- * @version 2.0.1
+ * @version 2.1.0
  */
 
 (function () {
@@ -38,7 +38,7 @@
     const CHECKBOX_SELECTOR = 'li input[type="checkbox"]';
 
     // Marks page states saved with the current ID format; states without it
-    // use the legacy IDs (up to v2.0.1) and are migrated as a whole on first render.
+    // use the legacy IDs (up to v2.0.2) and are migrated as a whole on first render.
     const ID_FORMAT_KEY = '__idFormatV2';
 
     /**
@@ -187,7 +187,7 @@
         }
 
         /**
-         * ID format used up to v2.0.1 (text including nested items + page index),
+         * ID format used up to v2.0.2 (text including nested items + page index),
          * kept to migrate previously saved states.
          * @param {HTMLElement} listItem - The list item containing the checkbox
          * @param {number} index - The checkbox index on the page
