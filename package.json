@@ -39,8 +39,8 @@
     },
     "homepage": "https://github.com/andreferra/docsify-plugin-interactive-checkboxes#readme",
     "devDependencies": {
-        "jest": "^29.7.0",
-        "jest-environment-jsdom": "^29.7.0",
+        "jest": "^30.5.2",
+        "jest-environment-jsdom": "^30.5.2",
         "terser": "^5.31.0"
     },
     "publishConfig": {

@@ -26,7 +26,7 @@ Please refer to the [Installation Guide](installation.md) for detailed instructi
 
 ```html
 <!-- Quick CDN link -->
-<script src="//cdn.jsdelivr.net/npm/docsify-interactive-checkboxes/dist/plugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docsify-interactive-checkboxes@2/dist/plugin.min.js"></script>
 ```
 
 ## 🎨 Styling

@@ -33,8 +33,10 @@ npm install docsify-interactive-checkboxes
 Add the script to your `index.html` after the Docsify script:
 
 ```html
-<script src="//cdn.jsdelivr.net/npm/docsify-interactive-checkboxes/dist/plugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docsify-interactive-checkboxes@2/dist/plugin.min.js"></script>
 ```
+
+For production, pin an exact version and add a [Subresource Integrity](https://developer.mozilla.org/docs/Web/Security/Subresource_Integrity) hash (see the [Installation Guide](docs/installation.md)).
 
 
 

@@ -208,7 +208,7 @@ describe('Docsify Interactive Checkboxes', () => {
 
             expect(localStorage.getItem('/test-page')).toBeNull();
             expect(window.exportDocsifyCheckboxStates()).toEqual({
-                'docsify-checkbox-/test-page': { [checkbox.id]: true }
+                'docsify-checkbox-/test-page': { [checkbox.id]: true, __idFormatV2: true }
             });
         });
 
@@ -219,6 +219,129 @@ describe('Docsify Interactive Checkboxes', () => {
             expect(window.exportDocsifyCheckboxStates()).toEqual({
                 'test-/page': { 'cb-1-0': true }
             });
+        });
+    });
+
+    describe('checkbox scope and stable IDs', () => {
+        const key = 'test-/test-page';
+        const runPlugin = () => {
+            const pluginFunction = window.$docsify.plugins[window.$docsify.plugins.length - 1];
+            pluginFunction(mockHook, mockVm);
+        };
+        const render = (items) => {
+            document.body.innerHTML = `
+                <aside class="sidebar"><ul><li><input type="checkbox" disabled /> Sidebar</li></ul></aside>
+                <article class="markdown-section"><ul>${items}</ul></article>
+            `;
+        };
+        const item = (text, nested = '') =>
+            `<li class="task-list-item"><input type="checkbox" disabled /> ${text}${nested}</li>`;
+
+        test('should ignore checkboxes outside the content area', () => {
+            render(item('Task A'));
+            runPlugin();
+
+            expect(document.querySelector('.sidebar input').disabled).toBe(true);
+            expect(document.querySelector('.markdown-section input').disabled).toBe(false);
+            expect(window.getDocsifyCheckboxProgress().total).toBe(1);
+        });
+
+        test('should keep state when an item is inserted above', () => {
+            render(item('Task A') + item('Task B'));
+            runPlugin();
+
+            const taskB = document.querySelectorAll('.markdown-section input')[1];
+            taskB.checked = true;
+            taskB.dispatchEvent(new Event('change'));
+
+            render(item('New task') + item('Task A') + item('Task B'));
+            runPlugin();
+
+            const inputs = document.querySelectorAll('.markdown-section input');
+            expect(inputs[0].checked).toBe(false);
+            expect(inputs[1].checked).toBe(false);
+            expect(inputs[2].checked).toBe(true);
+        });
+
+        test('should give distinct IDs to items with the same text', () => {
+            render(item('Same') + item('Same'));
+            runPlugin();
+
+            const [first, second] = document.querySelectorAll('.markdown-section input');
+            expect(first.id).not.toBe(second.id);
+        });
+
+        test('should not change parent ID when a nested item changes', () => {
+            const nested = (text) => `<ul>${item(text)}</ul>`;
+            render(item('Parent', nested('Child v1')));
+            runPlugin();
+            const parentId = document.querySelector('.markdown-section input').id;
+
+            render(item('Parent', nested('Child v2')));
+            runPlugin();
+
+            expect(document.querySelector('.markdown-section input').id).toBe(parentId);
+        });
+
+        test('should not mix legacy and new IDs when migrating duplicate items', () => {
+            render(item('X') + item('Same') + item('Same'));
+            const hash = (str) => {
+                let h = 0;
+                for (let i = 0; i < str.length; i++) {
+                    h = ((h << 5) - h) + str.charCodeAt(i);
+                    h = h & h;
+                }
+                return Math.abs(h).toString(36);
+            };
+            // Legacy IDs of the two "Same" items (page index 1 and 2); the new ID of
+            // the second one is also cb-<hash>-1
+            localStorage.setItem(key, JSON.stringify({
+                [`cb-${hash('Same')}-1`]: true,
+                [`cb-${hash('Same')}-2`]: false
+            }));
+
+            runPlugin();
+
+            const checked = Array.from(document.querySelectorAll('.markdown-section input')).map(cb => cb.checked);
+            expect(checked).toEqual([false, true, false]);
+
+            // Migrated data is not migrated again on the next render
+            runPlugin();
+            const checkedAgain = Array.from(document.querySelectorAll('.markdown-section input')).map(cb => cb.checked);
+            expect(checkedAgain).toEqual([false, true, false]);
+        });
+
+        test('should migrate states saved with the legacy ID format', () => {
+            render(item('Parent', '<ul>' + item('Child') + '</ul>') + item('Task B'));
+            // Legacy IDs: hash of text including nested items + page index
+            const hash = (str) => {
+                let h = 0;
+                for (let i = 0; i < str.length; i++) {
+                    h = ((h << 5) - h) + str.charCodeAt(i);
+                    h = h & h;
+                }
+                return Math.abs(h).toString(36);
+            };
+            const legacyText = (li) => {
+                const clone = li.cloneNode(true);
+                clone.querySelectorAll('input').forEach(el => el.remove());
+                return clone.textContent.trim().slice(0, 50);
+            };
+            const lis = document.querySelectorAll('.markdown-section li');
+            localStorage.setItem(key, JSON.stringify({
+                [`cb-${hash(legacyText(lis[0]))}-0`]: true,
+                [`cb-${hash(legacyText(lis[2]))}-2`]: true
+            }));
+
+            runPlugin();
+
+            const inputs = document.querySelectorAll('.markdown-section input');
+            expect(inputs[0].checked).toBe(true);
+            expect(inputs[1].checked).toBe(false);
+            expect(inputs[2].checked).toBe(true);
+
+            const stored = JSON.parse(localStorage.getItem(key));
+            expect(Object.keys(stored).sort()).toEqual([inputs[0].id, inputs[2].id, '__idFormatV2'].sort());
         });
     });
 });
